@@ -517,8 +517,8 @@
         const addAgendaBtnWrapper = document.getElementById("add-agenda-btn-wrapper");
         const addAgendaAuthAlert = document.getElementById("add-agenda-auth-alert");
 
-        const host = "xxxx";
-        const apiKey = "xxxx";
+        const host = "xxxxx";
+        const apiKey = "xxxxx";
 
         // ==========================================
         // FUNGSI NOTIFIKASI TOAST (OTOMATIS HILANG)
@@ -1183,24 +1183,21 @@
                 const fullDateLabel = `${note.dayNum} ${MONTH_NAMES[note.monthIndex]} ${note.year}`;
 
                 // Tombol aksi baris hanya untuk pengguna yang login
-                let actionBtnRowHTML = "";
+                let actionBtnRowHTML = `<td class="py-4 px-4 text-right"><div class="flex items-center justify-end gap-2">`;
+                actionBtnRowHTML += `<button onclick="gotoMonth(${note.monthIndex}, ${note.year})" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1">
+                                    Goto
+                                </button>`
                 if (isLoggedIn && note.type !== "national") {
                     actionBtnRowHTML = `
-                        <td class="py-4 px-4 text-right">
-                            <div class="flex items-center justify-end gap-2">
                                 <button onclick="openAgendaModal('edit', '${note.dateKey}', ${note.id})" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1">
                                     <i class="fa-solid fa-pen-to-square"></i> Ubah
                                 </button>
                                 <button onclick="deleteNote('${note.dateKey}', ${note.id})" class="px-3 py-1.5 bg-red-600/10 hover:bg-red-600/30 text-red-400 rounded-lg text-xs font-bold transition-all flex items-center gap-1">
                                     <i class="fa-regular fa-trash-can"></i> Hapus
                                 </button>
-                            </div>
-                        </td>
                     `;
-                } else if (isLoggedIn && note.type === "national") {
-                    // Untuk hari libur nasional tidak ada aksi edit/hapus
-                    actionBtnRowHTML = `<td class="py-4 px-4 text-right"><span class="text-xs italic text-slate-600">Fixed</span></td>`;
                 }
+                actionBtnRowHTML += `</div></td>`
 
                 listHTML += `
                     <tr class="hover:bg-white/[0.02] transition-colors border-b border-white/5 last:border-0">
@@ -1420,6 +1417,14 @@
                     '"': '&quot;'
                 }[tag] || tag)
             );
+        }
+
+        async function gotoMonth(m, y) {
+
+            currentDate.setFullYear(y);
+            currentDate.setMonth(m)
+
+            window.reloadCalendarData();
         }
 
         // Navigasi Bulan & Hari Ini
