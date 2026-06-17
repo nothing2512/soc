@@ -259,7 +259,7 @@
 
         <!-- PANEL RADIO FILTER (GROUP 1 & GROUP 2) - DESAIN PREMIUM SEGMENT CONTROL -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 p-5 bg-slate-950/60 rounded-2xl border border-white/5 text-sm">
-            <!-- Group 1: Filter Waktu / Tanggal Terjepit -->
+            <!-- Group 1: Filter Waktu / Tanggal Cantik -->
             <div class="space-y-3">
                 <span class="block text-xs font-extrabold uppercase tracking-widest text-indigo-400/90"><i class="fa-solid fa-filter mr-1.5"></i>Filter Waktu (Group 1)</span>
                 <div class="flex flex-wrap gap-2.5">
@@ -277,11 +277,11 @@
                             <i class="fa-solid fa-calendar-day text-xs"></i> Bulan Ini
                         </div>
                     </label>
-                    <!-- Tanggal Terjepit -->
+                    <!-- Tanggal Cantik -->
                     <label class="cursor-pointer select-none" title="Agenda nasional di hari Selasa dan Kamis saja">
-                        <input type="radio" name="filter-group-1" value="terjepit" class="sr-only peer">
+                        <input type="radio" name="filter-group-1" value="cantik" class="sr-only peer">
                         <div class="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-rose-400 hover:bg-rose-500/10 peer-checked:bg-gradient-to-r peer-checked:from-rose-600 peer-checked:to-pink-600 peer-checked:text-white peer-checked:border-transparent peer-checked:shadow-lg peer-checked:shadow-rose-500/25 transition-all text-xs font-semibold flex items-center gap-2">
-                            <i class="fa-solid fa-hourglass-half text-xs"></i> Tanggal Terjepit (Sel/Kam)
+                            <i class="fa-solid fa-hourglass-half text-xs"></i> Tanggal Cantik (Sen/Sel/Kam/Jum)
                         </div>
                     </label>
                 </div>
@@ -1115,12 +1115,12 @@
                         matchGroup1 = true;
                     } else if (filterGroup1 === 'month') {
                         matchGroup1 = (m === currentDate.getMonth());
-                    } else if (filterGroup1 === 'terjepit') {
-                        // "Tanggal Terjepit": Kalender nasional (type === 'national') yang jatuh pada hari Selasa atau Kamis
+                    } else if (filterGroup1 === 'cantik') {
+                        // "Tanggal cantik": Kalender nasional (type === 'national') yang jatuh pada hari Senin, Selasa, Kamis atau Jumat
                         if (evt.type === 'national') {
                             const dateObj = new Date(evt.date);
-                            const dayOfWeek = dateObj.getDay(); // 2 = Selasa, 4 = Kamis
-                            matchGroup1 = (dayOfWeek === 2 || dayOfWeek === 4);
+                            const dayOfWeek = dateObj.getDay(); // 1 = Senin, 2 = Selasa, 4 = Kamis, 5 = Jum'at
+                            matchGroup1 = (dayOfWeek === 2 || dayOfWeek === 4 || dayOfWeek == 1 || dayOfWeek == 5);
                         } else {
                             matchGroup1 = false;
                         }
