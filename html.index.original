@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalender Interaktif & Agenda Harian</title>
+    <!-- Google Fonts & Tailwind CSS untuk fondasi desain modern -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght=300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <!-- Font Awesome untuk ikon yang menarik -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Flatpickr untuk Date Picker Modern & Premium -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
+            min-height: 100vh;
+        }
+
+        /* Custom Scrollbar untuk daftar catatan */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Efek glassmorphism yang lembut */
+        .glass-panel {
+            background: rgba(30, 27, 75, 0.4);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Animasi transisi hari */
+        .day-cell {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Desain efek glow redup */
+        .glow-effect {
+            box-shadow: 0 0 25px rgba(139, 92, 246, 0.15);
+        }
+
+        /* Modal Sub-layer Blur */
+        .modal-backdrop {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(8px);
+        }
+
+        .flatpickr-calendar {
+            background: rgba(20, 18, 56, 0.95) !important; /* Warna ungu gelap senada */
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 16px !important;
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5) !important;
+            backdrop-filter: blur(12px);
+        }
+        .flatpickr-months .flatpickr-month {
+            background: transparent !important;
+            color: #fff !important;
+        }
+        .flatpickr-current-month .flatpickr-monthDropdown-months {
+            background: #1e1b4b !important;
+            border-radius: 8px;
+        }
+        .flatpickr-day.selected, .flatpickr-day.selected:hover {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6) !important; /* Gradien Indigo-Violet */
+            border-color: transparent !important;
+            border-radius: 10px !important;
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+        }
+        .flatpickr-day:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border-radius: 10px !important;
+        }
+        .flatpickr-day.today {
+            border-color: rgba(99, 102, 241, 0.5) !important;
+        }
+        .flatpickr-day {
+            color: #e2e8f0 !important;
+        }
+        .flatpickr-weekday {
+            color: #818cf8 !important; /* Indigo-400 */
+            font-weight: bold !important;
+        }
+    </style>
+</head>
+<body class="text-slate-100 flex flex-col items-center justify-start p-4 md:p-8 gap-6 relative">
+
+    <!-- KONTAINER NOTIFIKASI TOAST (Mengambang) -->
+    <div id="toast-container"
+        class="fixed top-5 right-5 z-[100] flex flex-col gap-3 pointer-events-none w-full max-w-sm sm:w-80"></div>
+
+    <!-- HEADER / NAVBAR -->
+    <div
+        class="w-full max-w-6xl flex justify-between items-center bg-slate-950/40 border border-white/5 px-6 py-4 rounded-2xl glass-panel">
+        <div class="flex items-center gap-3">
+            <div
+                class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/30">
+                <i class="fa-solid fa-calendar-days text-white text-lg"></i>
+            </div>
+            <div>
+                <span
+                    class="text-lg font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200">ChronosCalendar</span>
+                <span class="block text-[10px] text-slate-400 font-medium">Asisten Agenda Pribadi</span>
+            </div>
+        </div>
+
+        <!-- Area Pengguna / Tombol Login -->
+        <div id="auth-area">
+            <button onclick="openLoginModal()"
+                class="px-5 py-2 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-xl border border-white/10 transition-all flex items-center gap-2">
+                <i class="fa-solid fa-user-lock text-indigo-400"></i> Masuk / Login
+            </button>
+        </div>
+    </div>
+
+    <!-- PANEL UTAMA KALENDER & AGENDA BULANAN -->
+    <div
+        class="w-full max-w-6xl glass-panel rounded-3xl overflow-hidden shadow-2xl glow-effect flex flex-col lg:flex-row">
+
+        <!-- BAGIAN KIRI: Kalender Utama -->
+        <div class="flex-1 p-6 md:p-8">
+            <!-- Header Kalender: Bulan, Tahun & Navigasi -->
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8">
+                <div>
+                    <h1 id="current-month-year"
+                        class="text-2xl md:text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-indigo-200">
+                        Januari 2026
+                    </h1>
+                    <p class="text-xs md:text-sm text-indigo-300 font-medium mt-1">Pilih tanggal di bawah untuk menandai
+                        hari atau mengelola agenda</p>
+                </div>
+
+                <div class="flex items-center gap-3 bg-slate-900/60 p-1.5 rounded-2xl border border-white/5">
+                    <button id="prev-month-btn"
+                        class="p-2.5 rounded-xl hover:bg-white/10 text-indigo-300 hover:text-white transition-all"
+                        title="Bulan Sebelumnya">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <button id="today-btn"
+                        class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-indigo-600/30 transition-all">
+                        Hari Ini
+                    </button>
+                    <button id="next-month-btn"
+                        class="p-2.5 rounded-xl hover:bg-white/10 text-indigo-300 hover:text-white transition-all"
+                        title="Bulan Selanjutnya">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Header Nama-Nama Hari -->
+            <div class="grid grid-cols-7 gap-1 md:gap-2 mb-3 text-center">
+                <div class="text-rose-400 font-bold text-xs md:text-sm py-2 tracking-wider uppercase">Min</div>
+                <div class="text-slate-400 font-semibold text-xs md:text-sm py-2 tracking-wider uppercase">Sen</div>
+                <div class="text-slate-400 font-semibold text-xs md:text-sm py-2 tracking-wider uppercase">Sel</div>
+                <div class="text-slate-400 font-semibold text-xs md:text-sm py-2 tracking-wider uppercase">Rab</div>
+                <div class="text-slate-400 font-semibold text-xs md:text-sm py-2 tracking-wider uppercase">Kam</div>
+                <div class="text-slate-400 font-semibold text-xs md:text-sm py-2 tracking-wider uppercase">Jum</div>
+                <div class="text-rose-400 font-bold text-xs md:text-sm py-2 tracking-wider uppercase">Sab</div>
+            </div>
+
+            <!-- Grid Tanggal -->
+            <div id="calendar-days-grid" class="grid grid-cols-7 gap-1 md:gap-2.5">
+                <!-- Javascript akan mengisi sel-sel tanggal di sini -->
+            </div>
+        </div>
+
+        <!-- BAGIAN KANAN: Detail Agenda Bulanan Saja -->
+        <div
+            class="w-full lg:w-96 bg-slate-950/50 border-t lg:border-t-0 lg:border-l border-white/5 p-6 md:p-8 flex flex-col justify-between">
+            <div class="h-full flex flex-col">
+                <!-- Info Bulanan Aktif -->
+                <div class="flex items-center gap-4 mb-6">
+                    <div
+                        class="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex flex-col items-center justify-center text-indigo-300">
+                        <i class="fa-solid fa-calendar-week text-xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-100">Agenda Bulanan</h2>
+                        <p id="selected-month-label" class="text-xs text-slate-400">Aktivitas bulan terpilih</p>
+                    </div>
+                </div>
+
+                <!-- Daftar Agenda / Catatan Pada Bulan Terpilih -->
+                <div class="flex-1 flex flex-col min-h-[250px] justify-between">
+                    <div>
+                        <h3
+                            class="text-xs font-semibold uppercase tracking-wider text-indigo-300 mb-3 flex items-center justify-between">
+                            <span>Daftar Aktivitas</span>
+                            <span id="note-count-badge"
+                                class="bg-indigo-600/30 text-indigo-200 px-2 py-0.5 rounded-full text-[10px] font-bold">0
+                                Catatan</span>
+                        </h3>
+
+                        <div id="notes-container" class="space-y-2 max-h-96 overflow-y-auto custom-scrollbar pr-1">
+                            <!-- Agenda bulanan akan dimuat secara dinamis di sini -->
+                        </div>
+                    </div>
+
+                    <!-- Tombol Picu Tambah Agenda yang Bersih -->
+                    <div id="add-agenda-btn-wrapper" class="mt-6 pt-4 border-t border-white/5 hidden">
+                        <button onclick="openAgendaModal('add')"
+                            class="w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-calendar-plus"></i> Tambah Agenda Baru
+                        </button>
+                        <p class="text-[11px] text-slate-500 text-center mt-2">Agenda akan didaftarkan pada tanggal
+                            aktif yang Anda pilih di kalender.</p>
+                    </div>
+
+                    <div id="add-agenda-auth-alert" class="mt-6 pt-4 border-t border-white/5 text-center">
+                        <p
+                            class="text-xs text-indigo-300/70 italic bg-indigo-950/40 p-3 rounded-xl border border-indigo-500/10">
+                            Silakan masuk/login untuk dapat menambahkan atau mengelola agenda Anda.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BAGIAN BAWAH: Daftar Agenda Tahunan Berbentuk LIST -->
+    <div class="w-full max-w-6xl glass-panel rounded-3xl p-6 md:p-8 shadow-2xl glow-effect">
+        <div
+            class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-white/5 pb-4">
+            <div>
+                <h2 id="yearly-title"
+                    class="text-xl md:text-2xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-slate-100 to-white flex items-center gap-2.5">
+                    <i class="fa-solid fa-list-ul text-indigo-400"></i> Daftar Agenda Tahunan 2026
+                </h2>
+                <p class="text-xs text-indigo-300 mt-1">Semua agenda tahun berjalan dalam satu daftar terstruktur</p>
+            </div>
+            <div id="yearly-badge"
+                class="bg-violet-600/20 border border-violet-500/30 text-violet-300 px-3.5 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-2">
+                <i class="fa-solid fa-circle-nodes text-indigo-400 animate-pulse"></i> <span id="yearly-count">0
+                    Agenda</span>
+            </div>
+        </div>
+
+        <!-- PANEL RADIO FILTER (GROUP 1 & GROUP 2) - DESAIN PREMIUM SEGMENT CONTROL -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 p-5 bg-slate-950/60 rounded-2xl border border-white/5 text-sm">
+            <!-- Group 1: Filter Waktu / Tanggal Terjepit -->
+            <div class="space-y-3">
+                <span class="block text-xs font-extrabold uppercase tracking-widest text-indigo-400/90"><i class="fa-solid fa-filter mr-1.5"></i>Filter Waktu (Group 1)</span>
+                <div class="flex flex-wrap gap-2.5">
+                    <!-- Semua Data -->
+                    <label class="cursor-pointer select-none">
+                        <input type="radio" name="filter-group-1" value="all" checked class="sr-only peer">
+                        <div class="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white peer-checked:bg-gradient-to-r peer-checked:from-indigo-600 peer-checked:to-violet-600 peer-checked:text-white peer-checked:border-transparent peer-checked:shadow-lg peer-checked:shadow-indigo-500/25 transition-all text-xs font-semibold flex items-center gap-2">
+                            <i class="fa-solid fa-globe text-xs"></i> Semua Data
+                        </div>
+                    </label>
+                    <!-- Bulan Ini -->
+                    <label class="cursor-pointer select-none">
+                        <input type="radio" name="filter-group-1" value="month" class="sr-only peer">
+                        <div class="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white peer-checked:bg-gradient-to-r peer-checked:from-indigo-600 peer-checked:to-violet-600 peer-checked:text-white peer-checked:border-transparent peer-checked:shadow-lg peer-checked:shadow-indigo-500/25 transition-all text-xs font-semibold flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-day text-xs"></i> Bulan Ini
+                        </div>
+                    </label>
+                    <!-- Tanggal Terjepit -->
+                    <label class="cursor-pointer select-none" title="Agenda nasional di hari Selasa dan Kamis saja">
+                        <input type="radio" name="filter-group-1" value="terjepit" class="sr-only peer">
+                        <div class="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-rose-400 hover:bg-rose-500/10 peer-checked:bg-gradient-to-r peer-checked:from-rose-600 peer-checked:to-pink-600 peer-checked:text-white peer-checked:border-transparent peer-checked:shadow-lg peer-checked:shadow-rose-500/25 transition-all text-xs font-semibold flex items-center gap-2">
+                            <i class="fa-solid fa-hourglass-half text-xs"></i> Tanggal Terjepit (Sel/Kam)
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Group 2: Filter Tipe -->
+            <div class="space-y-3">
+                <span class="block text-xs font-extrabold uppercase tracking-widest text-indigo-400/90"><i class="fa-solid fa-tags mr-1.5"></i>Kategori Agenda (Group 2)</span>
+                <div class="flex flex-wrap gap-2.5">
+                    <!-- Semua -->
+                    <label class="cursor-pointer select-none">
+                        <input type="radio" name="filter-group-2" value="all" checked class="sr-only peer">
+                        <div class="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white peer-checked:bg-gradient-to-r peer-checked:from-indigo-600 peer-checked:to-violet-600 peer-checked:text-white peer-checked:border-transparent peer-checked:shadow-lg peer-checked:shadow-indigo-500/25 transition-all text-xs font-semibold flex items-center gap-2">
+                            <i class="fa-solid fa-border-all text-xs"></i> Semua Kategori
+                        </div>
+                    </label>
+                    <!-- National -->
+                    <label class="cursor-pointer select-none">
+                        <input type="radio" name="filter-group-2" value="national" class="sr-only peer">
+                        <div class="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white peer-checked:bg-gradient-to-r peer-checked:from-red-600 peer-checked:to-rose-600 peer-checked:text-white peer-checked:border-transparent peer-checked:shadow-lg peer-checked:shadow-red-500/25 transition-all text-xs font-semibold flex items-center gap-2">
+                            <i class="fa-solid fa-flag text-xs"></i> National
+                        </div>
+                    </label>
+                    <!-- Plan -->
+                    <label class="cursor-pointer select-none">
+                        <input type="radio" name="filter-group-2" value="plan" class="sr-only peer">
+                        <div class="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white peer-checked:bg-gradient-to-r peer-checked:from-indigo-600 peer-checked:to-violet-600 peer-checked:text-white peer-checked:border-transparent peer-checked:shadow-lg peer-checked:shadow-indigo-500/25 transition-all text-xs font-semibold flex items-center gap-2">
+                            <i class="fa-solid fa-note-sticky text-xs"></i> Plan
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wadah List Agenda Tahunan Berbentuk Tabel List Modern -->
+        <div class="overflow-x-auto custom-scrollbar">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr id="yearly-table-header"
+                        class="border-b border-white/10 text-xs font-extrabold text-indigo-300 uppercase tracking-wider">
+                        <th class="py-3 px-4">Tanggal & Waktu</th>
+                        <th class="py-3 px-4">Tipe / Kategori</th>
+                        <th class="py-3 px-4">Nama Agenda</th>
+                        <th class="py-3 px-4">Deskripsi Aktivitas</th>
+                        <!-- Kolom aksi di-inject dinamis berdasarkan login state -->
+                    </tr>
+                </thead>
+                <tbody id="yearly-list-container" class="divide-y divide-white/5 text-sm">
+                    <!-- Isi Agenda Tahunan List akan di-generate oleh Javascript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- MODAL POPUP: TAMBAH / UBAH AGENDA -->
+    <!-- ========================================== -->
+    <div id="agenda-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+        <div
+            class="bg-slate-900 border border-white/10 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl p-6 relative">
+            <button onclick="closeAgendaModal()"
+                class="absolute top-4 right-4 text-slate-400 hover:text-white transition-all">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <h3 id="modal-agenda-title" class="text-lg font-bold text-slate-100 mb-1">Tambah Agenda</h3>
+            <p id="modal-agenda-subtitle" class="text-xs text-indigo-300 mb-5">Daftarkan agenda aktivitas Anda</p>
+
+            <form id="agenda-form" class="space-y-4">
+                <!-- ID tersembunyi untuk proses edit -->
+                <input type="hidden" id="modal-event-id">
+                <input type="hidden" id="modal-original-date">
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Tanggal
+                        Agenda</label>
+                    <input type="date" id="modal-event-date" required
+                        class="w-full px-4 py-2.5 bg-slate-950 border border-white/10 rounded-xl text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-all">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Nama
+                        Agenda</label>
+                    <input type="text" id="modal-event-name" required placeholder="Nama agenda kegiatan..."
+                        class="w-full px-4 py-2.5 bg-slate-950 border border-white/10 rounded-xl text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-all">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Deskripsi
+                        Aktivitas</label>
+                    <textarea id="modal-event-description" rows="3"
+                        placeholder="Masukkan detail deskripsi atau catatan agenda..."
+                        class="w-full px-4 py-2 bg-slate-950 border border-white/10 rounded-xl text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-all resize-none"></textarea>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="closeAgendaModal()"
+                        class="flex-1 py-3 bg-white/5 hover:bg-white/10 text-slate-300 text-sm font-bold rounded-xl transition-all">
+                        Batal
+                    </button>
+                    <button type="submit"
+                        class="flex-1 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-600/35 transition-all">
+                        Simpan Agenda
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- MODAL POPUP: FORM LOGIN -->
+    <!-- ========================================== -->
+    <div id="login-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+        <div
+            class="bg-slate-900 border border-white/10 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl p-6 relative">
+            <button onclick="closeLoginModal()"
+                class="absolute top-4 right-4 text-slate-400 hover:text-white transition-all">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <div class="text-center mb-6">
+                <div
+                    class="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300 mx-auto mb-3">
+                    <i class="fa-solid fa-shield-halved text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-100">Selamat Datang</h3>
+                <p class="text-xs text-slate-400 mt-1">Silakan masuk untuk mencadangkan kalender Anda</p>
+            </div>
+
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Alamat
+                        Email</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                            <i class="fa-solid fa-envelope text-sm"></i>
+                        </span>
+                        <input type="email" id="login-email" required placeholder="nama@email.com"
+                            class="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-white/10 rounded-xl text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-all">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Kata
+                        Sandi</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                            <i class="fa-solid fa-lock text-sm"></i>
+                        </span>
+                        <input type="password" id="login-password" required placeholder="••••••••"
+                            class="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-white/10 rounded-xl text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-all">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between text-xs text-slate-400 py-1">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" class="accent-indigo-600 rounded"> Ingat saya
+                    </label>
+                    <a href="#" class="hover:text-indigo-400 transition-all">Lupa sandi?</a>
+                </div>
+
+                <button type="submit"
+                    class="w-full py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-600/35 transition-all mt-2">
+                    Masuk Sekarang
+                </button>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- Script Logika Kalender & Penyimpanan Catatan -->
+    <script>
+        // Data Nama Bulan dalam Bahasa Indonesia
+        const MONTH_NAMES = [
+            "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+            "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+        ];
+
+        // Nama-Nama Hari Lengkap
+        const DAY_NAMES = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+
+        // State Global Kalender & Sesi Serta Login Status
+        let currentDate = new Date();
+        let selectedDate = new Date();
+        let isLoggedIn = false;
+        let currentUserEmail = "";
+        let currentUserToken = "";
+        let calendarDatePicker = null; // Menyimpan instance Flatpickr
+        let lastYear = 0;
+        
+        // Memori Penyimpanan Agenda/Catatan dengan format baru:
+        // eventsData = [ { id, name, description, date, type } ]
+        let eventsData = [];
+        let holidayData = [];
+
+        // DOM Elements
+        const currentMonthYearEl = document.getElementById("current-month-year");
+        const calendarDaysGridEl = document.getElementById("calendar-days-grid");
+        const prevMonthBtn = document.getElementById("prev-month-btn");
+        const nextMonthBtn = document.getElementById("next-month-btn");
+        const todayBtn = document.getElementById("today-btn");
+
+        const selectedMonthLabelEl = document.getElementById("selected-month-label");
+        const notesContainerEl = document.getElementById("notes-container");
+        const noteCountBadgeEl = document.getElementById("note-count-badge");
+
+        const yearlyTitleEl = document.getElementById("yearly-title");
+        const yearlyCheckEl = document.getElementById("yearly-badge");
+        const yearlyCountEl = document.getElementById("yearly-count");
+        const yearlyListContainerEl = document.getElementById("yearly-list-container");
+
+        // Modal elements
+        const agendaModal = document.getElementById("agenda-modal");
+        const agendaForm = document.getElementById("agenda-form");
+        const modalTitleHeader = document.getElementById("modal-agenda-title");
+        const modalSubtitleHeader = document.getElementById("modal-agenda-subtitle");
+        const modalEventIdInput = document.getElementById("modal-event-id");
+        const modalOriginalDateInput = document.getElementById("modal-original-date");
+        const modalEventDateInput = document.getElementById("modal-event-date");
+        const modalEventNameInput = document.getElementById("modal-event-name");
+        const modalEventDescInput = document.getElementById("modal-event-description");
+
+        // Auth elements
+        const loginModal = document.getElementById("login-modal");
+        const loginForm = document.getElementById("login-form");
+        const loginEmailInput = document.getElementById("login-email");
+        const loginPasswordInput = document.getElementById("login-password");
+        const authArea = document.getElementById("auth-area");
+
+        // Wrapper Tombol Tambah
+        const addAgendaBtnWrapper = document.getElementById("add-agenda-btn-wrapper");
+        const addAgendaAuthAlert = document.getElementById("add-agenda-auth-alert");
+
+        const host = "xxxx";
+        const apiKey = "xxxx";
+
+        // ==========================================
+        // FUNGSI NOTIFIKASI TOAST (OTOMATIS HILANG)
+        // ==========================================
+        window.showNotification = function (message, type = 'success') {
+            const toastContainer = document.getElementById("toast-container");
+            const toast = document.createElement("div");
+
+            // Konfigurasi style warna notifikasi berdasarkan tipe
+            const successClasses = "bg-emerald-950/90 border-emerald-500/30 text-emerald-300";
+            const errorClasses = "bg-red-950/90 border-red-500/30 text-red-300";
+            const currentTypeClass = type === 'success' ? successClasses : errorClasses;
+
+            toast.className = `px-5 py-3.5 rounded-xl shadow-2xl border ${currentTypeClass} flex items-center gap-3 text-sm font-semibold pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0 glow-effect`;
+
+            const icon = type === 'success' ? 'fa-circle-check text-emerald-400' : 'fa-circle-exclamation text-red-400';
+            toast.innerHTML = `
+                <i class="fa-solid ${icon} text-base"></i>
+                <span class="flex-1">${escapeHTML(message)}</span>
+            `;
+
+            toastContainer.appendChild(toast);
+
+            // Efek animasi masuk
+            setTimeout(() => {
+                toast.classList.remove("translate-y-2", "opacity-0");
+            }, 10);
+
+            // Otomatis hilangkan notifikasi setelah 4 detik
+            setTimeout(() => {
+                toast.classList.add("translate-y-[-10px]", "opacity-0");
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 4000);
+        };
+
+        // ==========================================
+        // FUNGSI RE-RENDER / RELOAD UTAMA (UNTUK INTEGRASI ANDA)
+        // ==========================================
+        window.reloadCalendarData = function () {
+            renderCalendar();
+            updateSelectedDatePanel();
+            console.log("[Fungsi Reload] Kalender, panel bulanan, dan tabel tahunan berhasil diperbarui.");
+        };
+
+        // ==========================================
+        // FUNGSI API KOSONGAN (UNTUK ANDA CODING SENDIRI)
+        // ==========================================
+        async function tambahAgendaAPI(eventData) {
+            var token = window.getStoredToken()
+            if (!token) window.location.reload()
+
+            delete eventData.id;
+
+            try {
+                const response = await fetch(
+                    `${host}/rest/v1/holidays`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "apikey": apiKey,
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${token}`
+                        },
+                        body: JSON.stringify(eventData)
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                return true
+            } catch (err) {
+                console.error("Login failed:", err);
+                return false
+            }
+
+            return true;
+        }
+
+        async function ubahAgendaAPI(eventId, eventData) {
+            var token = window.getStoredToken()
+            if (!token) window.location.reload()
+            
+            try {
+                const response = await fetch(
+                    `${host}/rest/v1/holidays?id=eq.${eventData.id}`,
+                    {
+                        method: "PATCH",
+                        headers: {
+                            "apikey": apiKey,
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${token}`
+                        },
+                        body: JSON.stringify(eventData)
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                return true
+            } catch (err) {
+                console.error("Login failed:", err);
+                return false
+            }
+        }
+
+        async function hapusAgendaAPI(eventId) {
+            var token = window.getStoredToken()
+            if (!token) window.location.reload()
+
+            try {
+                const response = await fetch(
+                    `${host}/rest/v1/holidays?id=eq.${eventId}`,
+                    {
+                        method: "DELETE",
+                        headers: {
+                            "apikey": apiKey,
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${token}`
+                        },
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                return true
+            } catch (err) {
+                console.error("Login failed:", err);
+                return false
+            }
+
+            return true;
+        }
+
+        async function reloadData() {
+            try {
+                let currentYear = currentDate.getFullYear()
+                let response = await fetch(
+                    `${host}/rest/v1/rpc/get_holidays_by_year?input_year=${currentYear}`,
+                    {
+                        method: "GET",
+                        headers: {
+                            "apikey": apiKey,
+                            "Content-Type": "application/json",
+                        },
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                eventsData = await response.json();
+
+                if (lastYear == currentYear) {
+                    for (const item of holidayData) eventsData.push(item)
+                    return
+                }
+
+                holidayData = [];
+                response = await fetch(
+                    `https://libur.deno.dev/api?year=${currentYear}`,
+                    {
+                        method: "GET",
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                let holidayResponse = await response.json();
+
+                for (const item of holidayResponse) {
+                    eventsData.push({
+                        id: -1,
+                        name: item.name,
+                        description: item.name,
+                        date: item.date,
+                        type: "national"
+                    })
+                    holidayData.push({
+                        id: -1,
+                        name: item.name,
+                        description: item.name,
+                        date: item.date,
+                        type: "national"
+                    })
+                }
+
+                lastYear = currentYear;
+
+            } catch (err) {
+                console.error("Login failed:", err);
+            }
+        }
+
+        async function loginAPI(email, password) {
+            try {
+                const response = await fetch(
+                    `${host}/auth/v1/token?grant_type=password`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "apikey": apiKey,
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            email: email,
+                            password: password,
+                        }),
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                return data.access_token;
+            } catch (err) {
+                console.error("Login failed:", err);
+            }
+            return null
+        }
+
+        // ==========================================
+        // FUNGSI UNTUK MENGAMBIL TOKEN YANG TERSIMPAN (SISTEM GET TOKEN)
+        // ==========================================
+        window.getStoredToken = function () {
+            const sessionDataStr = sessionStorage.getItem("chronos_session_data");
+            if (!sessionDataStr) return null;
+
+            try {
+                const sessionData = JSON.parse(sessionDataStr);
+                const now = Date.now();
+                const twelveHoursInMs = 12 * 60 * 60 * 1000; // 43.200.000 ms
+
+                // Validasi selisih waktu sesi (12 Jam)
+                if (now - sessionData.timestamp < twelveHoursInMs) {
+                    return sessionData.token;
+                } else {
+                    // Token sudah kedaluwarsa secara temporal, hapus dari cache
+                    sessionStorage.removeItem("chronos_session_data");
+                    return null;
+                }
+            } catch (error) {
+                return null;
+            }
+        };
+
+        // ==========================================
+        // MANAJEMEN SESI SINKRONISASI LOGIN (12 JAM) - MENGGUNAKAN SESSIONSTORAGE (CACHE)
+        // ==========================================
+        function saveLoginSession(email, token) {
+            const sessionData = {
+                email: email,
+                token: token,
+                timestamp: Date.now() // Simpan milidetik saat ini
+            };
+            sessionStorage.setItem("chronos_session_data", JSON.stringify(sessionData));
+        }
+
+        function checkLoginSession() {
+            const token = window.getStoredToken();
+            if (!token) {
+                isLoggedIn = false;
+                currentUserEmail = "";
+                currentUserToken = "";
+                return false;
+            }
+
+            try {
+                const sessionData = JSON.parse(sessionStorage.getItem("chronos_session_data"));
+                isLoggedIn = true;
+                currentUserEmail = sessionData.email;
+                currentUserToken = token;
+                return true;
+            } catch (error) {
+                isLoggedIn = false;
+                currentUserEmail = "";
+                currentUserToken = "";
+                return false;
+            }
+        }
+
+        // Sync visual UI berdasarkan status login saat ini
+        function updateUIForLoginState() {
+            if (isLoggedIn) {
+                // Sembunyikan pesan wajib login, tampilkan tombol tambah agenda
+                addAgendaBtnWrapper.classList.remove("hidden");
+                addAgendaAuthAlert.classList.add("hidden");
+
+                // Ganti tombol login di header menjadi info user
+                const username = currentUserEmail.split('@')[0];
+                authArea.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="text-right hidden sm:block">
+                            <span class="block text-sm font-bold text-slate-100">${escapeHTML(username)}</span>
+                            <span class="block text-[10px] text-emerald-400 font-semibold"><i class="fa-solid fa-circle text-[8px] mr-1"></i>Sesi Aktif (12j)</span>
+                        </div>
+                        <div class="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-300">
+                            <i class="fa-solid fa-circle-user text-xl"></i>
+                        </div>
+                        <button onclick="handleLogout()" class="p-2 hover:bg-white/10 text-slate-400 hover:text-red-400 rounded-lg transition-all" title="Keluar / Logout">
+                            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                        </button>
+                    </div>
+                `;
+            } else {
+                // Sembunyikan tombol tambah, tampilkan pesan peringatan login
+                addAgendaBtnWrapper.classList.add("hidden");
+                addAgendaAuthAlert.classList.remove("hidden");
+
+                // Kembalikan ke tombol login default
+                authArea.innerHTML = `
+                    <button onclick="openLoginModal()"
+                        class="px-5 py-2 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-xl border border-white/10 transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-user-lock text-indigo-400"></i> Masuk / Login
+                    </button>
+                `;
+            }
+
+            // Panggil reload global untuk menyegarkan tampilan
+            window.reloadCalendarData();
+        }
+
+        // Helper untuk menghasilkan format string tanggal "YYYY-MM-DD"
+        function getFormattedDateKey(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        // Inisialisasi Kalender
+        function initCalendar() {
+            calendarDatePicker = flatpickr("#modal-event-date", {
+                dateFormat: "Y-m-d",
+                defaultDate: getFormattedDateKey(selectedDate),
+                locale: {
+                    firstDayOfWeek: 1 // Mulai hari Senin
+                }
+            });
+
+            // Bind events untuk filter radio buttons
+            document.querySelectorAll('input[name="filter-group-1"], input[name="filter-group-2"]').forEach(radio => {
+                radio.addEventListener('change', () => {
+                    renderYearlyAgenda();
+                });
+            });
+
+            checkLoginSession();
+            updateUIForLoginState();
+        }
+
+        // Render Seluruh Hari pada Bulan yang Sedang Dipilih
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+
+            // Set Nama Bulan dan Tahun di Header
+            currentMonthYearEl.textContent = `${MONTH_NAMES[month]} ${year}`;
+
+            // Mendapatkan hari pertama pada bulan ini
+            const firstDayIndex = new Date(year, month, 1).getDay();
+            // Mendapatkan jumlah hari total pada bulan ini
+            const totalDays = new Date(year, month + 1, 0).getDate();
+            // Mendapatkan jumlah hari total pada bulan sebelumnya (untuk mengisi sisa grid di awal)
+            const prevTotalDays = new Date(year, month, 0).getDate();
+
+            let daysHTML = "";
+
+            // 1. Mengisi hari dari bulan sebelumnya (sisa grid kosong di awal)
+            for (let i = firstDayIndex; i > 0; i--) {
+                const dayNum = prevTotalDays - i + 1;
+                daysHTML += `
+                    <div class="day-cell opacity-25 p-2 md:p-3 text-xs md:text-sm text-center rounded-xl font-medium cursor-not-allowed text-slate-400">
+                        ${dayNum}
+                    </div>
+                `;
+            }
+
+            // 2. Mengisi hari aktif pada bulan ini
+            const today = new Date();
+            for (let day = 1; day <= totalDays; day++) {
+                const thisDate = new Date(year, month, day);
+                const dateKey = getFormattedDateKey(thisDate);
+
+                // Cek apakah tanggal hari ini
+                const isToday = thisDate.getDate() === today.getDate() &&
+                    thisDate.getMonth() === today.getMonth() &&
+                    thisDate.getFullYear() === today.getFullYear();
+
+                // Cek apakah tanggal terpilih
+                const isSelected = thisDate.getDate() === selectedDate.getDate() &&
+                    thisDate.getMonth() === selectedDate.getMonth() &&
+                    thisDate.getFullYear() === selectedDate.getFullYear();
+
+                // Cek apakah hari Sabtu (6) atau Minggu (0)
+                const dayOfWeek = thisDate.getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+                // Cek apakah ada agenda di tanggal ini (filter flat array)
+                const dayEvents = eventsData.filter(evt => evt.date === dateKey);
+                const hasEvents = dayEvents.length > 0;
+
+                // Membangun class css dinamis
+                let cellClasses = "day-cell p-2 md:p-3 text-center rounded-2xl font-semibold cursor-pointer relative hover:scale-105 flex flex-col items-center justify-center min-h-[50px] md:min-h-[60px] ";
+
+                if (isToday) {
+                    cellClasses += " bg-indigo-600/30 text-indigo-200 border border-indigo-500/40";
+                } else if (isSelected) {
+                    cellClasses += " bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-indigo-600/20";
+                } else {
+                    // Berikan warna merah lembut untuk Sabtu dan Minggu
+                    if (isWeekend) {
+                        cellClasses += " hover:bg-white/5 text-rose-400";
+                    } else {
+                        cellClasses += " hover:bg-white/5 text-slate-200";
+                    }
+                }
+
+                // Desain titik indikator agenda di bawah angka tanggal (warna tetap/fixed berdasarkan tipe)
+                let dotsHTML = "";
+                if (hasEvents) {
+                    dotsHTML = `
+                        <div class="flex gap-1 justify-center mt-1 w-full overflow-hidden px-1">
+                            ${dayEvents.map(evt => {
+                                // Merah untuk national, Indigo untuk plan
+                                let dotColor = (evt.type === "national") ? "bg-red-500" : "bg-indigo-500";
+                                return `<span class="w-1.5 h-1.5 rounded-full ${dotColor}"></span>`;
+                            }).slice(0, 3).join('')}
+                        </div>
+                    `;
+                }
+
+                daysHTML += `
+                    <div onclick="selectDay(${day})" class="${cellClasses}">
+                        <span class="text-xs md:text-base">${day}</span>
+                        ${dotsHTML}
+                    </div>
+                `;
+            }
+
+            // 3. Mengisi hari sisa di akhir grid agar genap kelipatan 7
+            const totalCellsUsed = firstDayIndex + totalDays;
+            const remainingCells = (7 - (totalCellsUsed % 7)) % 7;
+            for (let i = 1; i <= remainingCells; i++) {
+                daysHTML += `
+                    <div class="day-cell opacity-25 p-2 md:p-3 text-xs md:text-sm text-center rounded-xl font-medium cursor-not-allowed text-slate-400">
+                        ${i}
+                    </div>
+                `;
+            }
+
+            calendarDaysGridEl.innerHTML = daysHTML;
+        }
+
+        // Aksi ketika pengguna mengklik tanggal pada kalender
+        window.selectDay = function (dayNum) {
+            selectedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), dayNum);
+            renderCalendar();
+            updateSelectedDatePanel();
+        };
+
+        // Update Panel Informasi Catatan & Tanggal yang Dipilih
+        function updateSelectedDatePanel() {
+            const monthName = MONTH_NAMES[currentDate.getMonth()];
+            const yearNum = currentDate.getFullYear();
+
+            selectedMonthLabelEl.textContent = `Daftar aktivitas di bulan ${monthName} ${yearNum}`;
+
+            renderNotes();
+            renderYearlyAgenda();
+        }
+
+        // Render daftar agenda untuk seluruh bulan terpilih di panel kanan
+        function renderNotes() {
+            const currentYear = currentDate.getFullYear();
+            const currentMonth = currentDate.getMonth();
+            const monthKeyPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+
+            // Cari semua event yang berawal dengan format bulan berjalan (misal: "2026-06-")
+            let monthlyEvents = eventsData
+                .filter(evt => evt.date.startsWith(monthKeyPrefix))
+                .map(evt => ({
+                    ...evt,
+                    dateKey: evt.date,
+                    dayNum: parseInt(evt.date.split('-')[2])
+                }));
+
+            // Urutkan agenda secara berurutan sesuai nomor hari
+            monthlyEvents.sort((a, b) => a.dayNum - b.dayNum);
+
+            noteCountBadgeEl.textContent = `${monthlyEvents.length} Catatan`;
+
+            if (monthlyEvents.length === 0) {
+                notesContainerEl.innerHTML = `
+                    <div class="py-12 text-center text-slate-500">
+                        <i class="fa-regular fa-calendar-minus text-4xl mb-3 opacity-30"></i>
+                        <p class="text-xs">Belum ada agenda terdaftar untuk bulan ini.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let notesHTML = "";
+            monthlyEvents.forEach(note => {
+                let borderClass = "border-l-indigo-500";
+                let textClass = "text-indigo-400";
+                let badgeLabel = "Rencana";
+
+                // Atur warna visual berdasarkan Tipe
+                if (note.type === "national") {
+                    borderClass = "border-l-red-500";
+                    textClass = "text-red-400";
+                    badgeLabel = "Libur Nasional";
+                }
+
+                // Tampilkan aksi edit/hapus hanya jika berstatus Logged In
+                let actionsHTML = "";
+                if (isLoggedIn) {
+                    actionsHTML = `
+                        <div class="flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-all ml-1">
+                            <button onclick="openAgendaModal('edit', '${note.dateKey}', ${note.id})" class="text-indigo-400 hover:text-indigo-300 p-1" title="Ubah">
+                                <i class="fa-solid fa-pen text-[11px]"></i>
+                            </button>
+                            <button onclick="deleteNote('${note.dateKey}', ${note.id})" class="text-slate-500 hover:text-red-400 p-1" title="Hapus">
+                                <i class="fa-regular fa-trash-can text-[11px]"></i>
+                            </button>
+                        </div>
+                    `;
+                }
+
+                notesHTML += `
+                    <div class="p-3 bg-slate-900/60 hover:bg-slate-900 border-l-4 ${borderClass} rounded-r-xl transition-all flex items-start justify-between gap-2 group">
+                        <div class="flex-1 min-w-0">
+                            <span class="inline-block text-[10px] font-extrabold uppercase ${textClass} tracking-wide mb-0.5">
+                                Tgl ${note.dayNum} ${MONTH_NAMES[currentMonth].substring(0, 3)} • ${badgeLabel}
+                            </span>
+                            <h4 class="text-sm font-bold text-slate-200 truncate">${escapeHTML(note.name)}</h4>
+                            ${note.description ? `<p class="text-xs text-slate-400 mt-1 break-words line-clamp-2">${escapeHTML(note.description)}</p>` : ''}
+                        </div>
+                        ${actionsHTML}
+                    </div>
+                `;
+            });
+
+            notesContainerEl.innerHTML = notesHTML;
+        }
+
+        // Render daftar agenda tahunan dalam bentuk TABEL LIST di bagian bawah (Dengan Filter Kombinasi AND)
+        function renderYearlyAgenda() {
+            const currentYear = currentDate.getFullYear();
+            yearlyTitleEl.innerHTML = `<i class="fa-solid fa-list-ul text-indigo-400"></i> Daftar Agenda Tahunan ${currentYear}`;
+
+            // Dapatkan nilai dari Radio Filter Group 1 & 2
+            const filterGroup1 = document.querySelector('input[name="filter-group-1"]:checked')?.value || 'all';
+            const filterGroup2 = document.querySelector('input[name="filter-group-2"]:checked')?.value || 'all';
+
+            // Perbarui header kolom aksi sesuai status login
+            const headerRow = document.getElementById("yearly-table-header");
+            const existingActionCol = document.getElementById("action-header-col");
+            if (isLoggedIn) {
+                if (!existingActionCol) {
+                    headerRow.insertAdjacentHTML("beforeend", `<th id="action-header-col" class="py-3 px-4 text-right">Aksi</th>`);
+                }
+            } else {
+                if (existingActionCol) {
+                    existingActionCol.remove();
+                }
+            }
+
+            let allYearlyEvents = [];
+            eventsData.forEach(evt => {
+                const parts = evt.date.split('-');
+                const y = parseInt(parts[0]);
+                const m = parseInt(parts[1]) - 1;
+                const d = parseInt(parts[2]);
+
+                if (y === currentYear) {
+                    // 1. Evaluasi Syarat Filter Group 1 (Waktu)
+                    let matchGroup1 = false;
+                    if (filterGroup1 === 'all') {
+                        matchGroup1 = true;
+                    } else if (filterGroup1 === 'month') {
+                        matchGroup1 = (m === currentDate.getMonth());
+                    } else if (filterGroup1 === 'terjepit') {
+                        // "Tanggal Terjepit": Kalender nasional (type === 'national') yang jatuh pada hari Selasa atau Kamis
+                        if (evt.type === 'national') {
+                            const dateObj = new Date(evt.date);
+                            const dayOfWeek = dateObj.getDay(); // 2 = Selasa, 4 = Kamis
+                            matchGroup1 = (dayOfWeek === 2 || dayOfWeek === 4);
+                        } else {
+                            matchGroup1 = false;
+                        }
+                    }
+
+                    // 2. Evaluasi Syarat Filter Group 2 (Tipe / Kategori)
+                    let matchGroup2 = false;
+                    if (filterGroup2 === 'all') {
+                        matchGroup2 = true;
+                    } else if (filterGroup2 === 'national') {
+                        matchGroup2 = (evt.type === 'national');
+                    } else if (filterGroup2 === 'plan') {
+                        matchGroup2 = (evt.type === 'plan');
+                    }
+
+                    // 3. Gabungkan dalam kondisi AND
+                    if (matchGroup1 && matchGroup2) {
+                        allYearlyEvents.push({
+                            ...evt,
+                            dateKey: evt.date,
+                            year: y,
+                            monthIndex: m,
+                            dayNum: d
+                        });
+                    }
+                }
+            });
+
+            // Urutkan agenda dari bulan terkecil & hari terkecil
+            allYearlyEvents.sort((a, b) => {
+                if (a.monthIndex !== b.monthIndex) return a.monthIndex - b.monthIndex;
+                return a.dayNum - b.dayNum;
+            });
+
+            yearlyCountEl.textContent = `${allYearlyEvents.length} Agenda`;
+
+            if (allYearlyEvents.length === 0) {
+                const colspanVal = isLoggedIn ? 5 : 4;
+                yearlyListContainerEl.innerHTML = `
+                    <tr>
+                        <td colspan="${colspanVal}" class="text-center py-12 text-slate-500">
+                            <i class="fa-solid fa-timeline text-4xl mb-3 opacity-30 block"></i>
+                            <p class="text-sm">Tidak ada agenda yang cocok dengan kriteria filter.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            let listHTML = "";
+            allYearlyEvents.forEach(note => {
+                let badgeClass = "bg-indigo-500/10 text-indigo-300 border-indigo-500/30";
+                let badgeText = "Plan";
+
+                if (note.type === "national") {
+                    badgeClass = "bg-red-500/10 text-red-300 border-red-500/30";
+                    badgeText = "National";
+                }
+
+                const fullDateLabel = `${note.dayNum} ${MONTH_NAMES[note.monthIndex]} ${note.year}`;
+
+                // Tombol aksi baris hanya untuk pengguna yang login
+                let actionBtnRowHTML = "";
+                if (isLoggedIn && note.type !== "national") {
+                    actionBtnRowHTML = `
+                        <td class="py-4 px-4 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <button onclick="openAgendaModal('edit', '${note.dateKey}', ${note.id})" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1">
+                                    <i class="fa-solid fa-pen-to-square"></i> Ubah
+                                </button>
+                                <button onclick="deleteNote('${note.dateKey}', ${note.id})" class="px-3 py-1.5 bg-red-600/10 hover:bg-red-600/30 text-red-400 rounded-lg text-xs font-bold transition-all flex items-center gap-1">
+                                    <i class="fa-regular fa-trash-can"></i> Hapus
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                } else if (isLoggedIn && note.type === "national") {
+                    // Untuk hari libur nasional tidak ada aksi edit/hapus
+                    actionBtnRowHTML = `<td class="py-4 px-4 text-right"><span class="text-xs italic text-slate-600">Fixed</span></td>`;
+                }
+
+                listHTML += `
+                    <tr class="hover:bg-white/[0.02] transition-colors border-b border-white/5 last:border-0">
+                        <td class="py-4 px-4 font-semibold text-slate-300 whitespace-nowrap">
+                            <i class="fa-regular fa-calendar-check text-indigo-400 mr-2"></i> ${fullDateLabel}
+                        </td>
+                        <td class="py-4 px-4">
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-bold border ${badgeClass}">
+                                ${badgeText}
+                            </span>
+                        </td>
+                        <td class="py-4 px-4 font-bold text-slate-100 max-w-xs truncate">
+                            ${escapeHTML(note.name)}
+                        </td>
+                        <td class="py-4 px-4 text-slate-400 max-w-sm truncate">
+                            ${note.description ? escapeHTML(note.description) : '<span class="italic text-slate-600">Tanpa deskripsi</span>'}
+                        </td>
+                        ${actionBtnRowHTML}
+                    </tr>
+                `;
+            });
+
+            yearlyListContainerEl.innerHTML = listHTML;
+        }
+
+        // Hapus Agenda tertentu berdasarkan key tanggal & ID agenda
+        window.deleteNote = async function (dateKey, noteId) {
+            if (!isLoggedIn) return; // Proteksi Client-Side
+
+            try {
+                // API Kosongan dipanggil
+                const success = await hapusAgendaAPI(noteId);
+
+                if (success) {
+                    
+                    await reloadData();
+
+                    // PEMBARUAN INSTAN & Trigger Reload
+                    window.reloadCalendarData();
+                    window.showNotification("Agenda berhasil dihapus!", "success");
+                } else {
+                    window.showNotification("Gagal menghapus agenda dari server.", "error");
+                }
+            } catch (err) {
+                window.showNotification("Terjadi kesalahan sistem saat menghapus data.", "error");
+            }
+        };
+
+        // Membuka Modal Agenda (untuk Tambah Baru maupun Edit)
+        window.openAgendaModal = function(mode, dateKey = null, eventId = null) {
+            if (!isLoggedIn) return; // Mencegah akses modal jika belum login
+            
+            agendaForm.reset();
+
+            if (mode === 'add') {
+                modalTitleHeader.textContent = "Tambah Agenda Baru";
+                modalSubtitleHeader.textContent = "Catat agenda aktivitas harian Anda";
+                modalEventIdInput.value = "";
+                modalOriginalDateInput.value = "";
+                
+                // Isi input tanggal default ke tanggal terpilih saat ini menggunakan Flatpickr
+                if (calendarDatePicker) {
+                    calendarDatePicker.setDate(getFormattedDateKey(selectedDate));
+                }
+            } 
+            else if (mode === 'edit' && dateKey && eventId) {
+                const event = eventsData.find(evt => evt.id === parseInt(eventId));
+                if (!event) return;
+
+                modalTitleHeader.textContent = "Ubah Rincian Agenda";
+                modalSubtitleHeader.textContent = "Perbarui detail aktivitas Anda";
+                modalEventIdInput.value = event.id;
+                modalOriginalDateInput.value = dateKey;
+                
+                // Isi input form dengan data yang sudah ada menggunakan Flatpickr
+                if (calendarDatePicker) {
+                    calendarDatePicker.setDate(dateKey);
+                }
+                modalEventNameInput.value = event.name;
+                modalEventDescInput.value = event.description || "";
+            }
+
+            agendaModal.classList.remove("hidden");
+        };
+
+        // Menutup Modal Agenda
+        window.closeAgendaModal = function () {
+            agendaModal.classList.add("hidden");
+        };
+
+        // Submit Form Agenda (Simpan / Perbarui)
+        agendaForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (!isLoggedIn) return; // Proteksi Client-Side
+
+            const eventId = modalEventIdInput.value;
+            const originalDateKey = modalOriginalDateInput.value;
+            const targetDateValue = modalEventDateInput.value;
+            const name = modalEventNameInput.value.trim();
+            const description = modalEventDescInput.value.trim();
+
+            // Tipe di-force ke "plan" karena libur nasional dikelola di database/sumber terpisah
+            const type = "plan";
+
+            if (!name || !targetDateValue) {
+                window.showNotification("Mohon lengkapi formulir agenda.", "error");
+                return;
+            }
+
+            const newEventData = {
+                id: eventId ? parseInt(eventId) : Date.now(),
+                name: name,
+                description: description,
+                date: targetDateValue,
+                type: type
+            };
+
+            try {
+                let success = false;
+                // Panggilan API Kosongan
+                if (eventId) {
+                    success = await ubahAgendaAPI(eventId, newEventData);
+                } else {
+                    success = await tambahAgendaAPI(newEventData);
+                }
+
+                if (success) {
+                    // Jika dalam mode EDIT, hapus rujukan lama dari flat array terlebih dahulu
+                    if (eventId) {
+                        eventsData = eventsData.filter(evt => evt.id !== parseInt(eventId));
+                    }
+
+                    await reloadData();
+
+                    closeAgendaModal();
+
+                    // PEMBARUAN INSTAN & Reload
+                    window.reloadCalendarData();
+                    window.showNotification(
+                        eventId ? "Perubahan agenda berhasil disimpan!" : "Agenda baru berhasil ditambahkan!",
+                        "success"
+                    );
+                } else {
+                    window.showNotification("Gagal menyimpan data ke server.", "error");
+                }
+            } catch (err) {
+                window.showNotification("Terjadi kesalahan koneksi sistem.", "error");
+            }
+        });
+
+
+        // ==========================================
+        // FUNGSI & MODAL LOGIN SIMULASI
+        // ==========================================
+        window.openLoginModal = function () {
+            loginForm.reset();
+            loginModal.classList.remove("hidden");
+        };
+
+        window.closeLoginModal = function () {
+            loginModal.classList.add("hidden");
+        };
+
+        // Submit Login & Simpan Token dalam Sesi Cache (12 Jam)
+        loginForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const email = loginEmailInput.value.trim();
+            const password = loginPasswordInput.value; // Disediakan jika kelak diintegrasikan
+
+            try {
+                // Memanggil login API Kosongan & Mengambil Token
+                const token = await loginAPI(email, password);
+
+                if (token) {
+                    // Simpan sesi autentikasi pada sessionStorage (Masa aktif session cache 12 Jam)
+                    saveLoginSession(email, token);
+
+                    // Set status global ke aktif
+                    isLoggedIn = true;
+                    currentUserEmail = email;
+                    currentUserToken = token;
+
+                    closeLoginModal();
+                    updateUIForLoginState();
+                    window.showNotification("Berhasil masuk ke akun Anda!", "success");
+                } else {
+                    window.showNotification("Kredensial login tidak valid.", "error");
+                }
+            } catch (err) {
+                window.showNotification("Autentikasi gagal.", "error");
+            }
+        });
+
+        // Aksi Keluar / Logout Sesi
+        window.handleLogout = function () {
+            // Hapus penyimpanan sesi cache
+            sessionStorage.removeItem("chronos_session_data");
+
+            // Atur status login global ke tidak aktif
+            isLoggedIn = false;
+            currentUserEmail = "";
+            currentUserToken = "";
+
+            updateUIForLoginState();
+            window.showNotification("Sesi berakhir, Anda telah keluar.", "success");
+        };
+
+
+        // Helper fungsi untuk menghindari XSS injection pada input catatan
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g,
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
+        // Navigasi Bulan & Hari Ini
+        prevMonthBtn.addEventListener("click", () => {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            window.reloadCalendarData();
+        });
+
+        nextMonthBtn.addEventListener("click", () => {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            window.reloadCalendarData();
+        });
+
+        todayBtn.addEventListener("click", () => {
+            currentDate = new Date();
+            selectedDate = new Date();
+            initCalendar();
+        });
+
+        // Jalankan inisialisasi awal saat halaman siap
+        window.onload = async function () {
+            await reloadData();
+            initCalendar();
+        };
+    </script>
+</body>
+
+</html>
