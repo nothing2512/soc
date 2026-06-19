@@ -726,6 +726,16 @@
                     return
                 }
 
+                let now = new Date()
+                let hDataStorage = localStorage.getItem(`hdata${currentYear}`)
+                if (hDataStorage != null) {
+                    let hData = JSON.parse(hDataStorage)
+                    if (hData.until > now.getTime()) {
+                        for (const item of hData.data) eventsData.push(item)
+                        return
+                    } else localStorage.removeItem(`hdata${currentYear}`);
+                }
+
                 holidayData = [];
                 response = await fetch(
                     `https://libur.deno.dev/api?year=${currentYear}`,
@@ -756,6 +766,12 @@
                         type: "national"
                     })
                 }
+
+                now.setDate(now.getDate() + 7)
+                localStorage.setItem(`hdata${currentYear}`, JSON.stringify({
+                    until: now.getTime(),
+                    data: holidayData,
+                }))
 
                 lastYear = currentYear;
 
