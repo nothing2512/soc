@@ -454,6 +454,47 @@
     </div>
 
 
+    <!-- ========================================== -->
+    <!-- MODAL POPUP: DETAIL VIEW AGENDA YANG DI-SHARE -->
+    <!-- ========================================== -->
+    <div id="share-view-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop hidden">
+        <div class="bg-slate-900 border border-white/10 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl p-6 relative">
+            <button onclick="closeShareViewModal()"
+                class="absolute top-4 right-4 text-slate-400 hover:text-white transition-all">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <div class="flex items-center gap-3.5 mb-5">
+                <div id="share-view-icon-wrapper" class="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg">
+                    <i id="share-view-icon" class="text-white text-xl"></i>
+                </div>
+                <div>
+                    <span id="share-view-badge" class="px-2.5 py-0.5 rounded-md text-[10px] font-bold border"></span>
+                    <h3 id="share-view-date-label" class="text-xs text-slate-400 mt-1 font-semibold"></h3>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <span class="block text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mb-1">Nama Agenda</span>
+                    <h2 id="share-view-name" class="text-xl font-extrabold text-white tracking-tight"></h2>
+                </div>
+
+                <div>
+                    <span class="block text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mb-1">Deskripsi Aktivitas</span>
+                    <div class="bg-slate-950/50 border border-white/5 rounded-xl p-4 min-h-[80px]">
+                        <p id="share-view-description" class="text-sm text-slate-300 leading-relaxed break-words"></p>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="closeShareViewModal()" class="w-full mt-6 py-3 bg-white/5 hover:bg-white/10 text-slate-300 text-sm font-bold rounded-xl transition-all border border-white/5">
+                Tutup Detail
+            </button>
+        </div>
+    </div>
+
+
     <!-- Script Logika Kalender & Penyimpanan Catatan -->
     <script>
         // Data Nama Bulan dalam Bahasa Indonesia
@@ -517,8 +558,8 @@
         const addAgendaBtnWrapper = document.getElementById("add-agenda-btn-wrapper");
         const addAgendaAuthAlert = document.getElementById("add-agenda-auth-alert");
 
-        const host = "xxxxx";
-        const apiKey = "xxxxx";
+        const host = "xxxx";
+        const apiKey = "xxxx";
 
         // ==========================================
         // FUNGSI NOTIFIKASI TOAST (OTOMATIS HILANG)
@@ -881,6 +922,9 @@
 
             checkLoginSession();
             updateUIForLoginState();
+            
+            // Cek parameter share di URL pada saat inisialisasi
+            checkURLForSharedEvent();
         }
 
         // Render Seluruh Hari pada Bulan yang Sedang Dipilih
@@ -1182,11 +1226,21 @@
 
                 const fullDateLabel = `${note.dayNum} ${MONTH_NAMES[note.monthIndex]} ${note.year}`;
 
-                // Tombol aksi baris hanya untuk pengguna yang login
+                // Tombol aksi baris
                 let actionBtnRowHTML = `<td class="py-4 px-4 text-right"><div class="flex items-center justify-end gap-2">`;
-                actionBtnRowHTML += `<button onclick="gotoMonth(${note.monthIndex}, ${note.year})" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1">
+                
+                // Tombol Goto (Semua User Bisa)
+                actionBtnRowHTML += `<button onclick="gotoMonth(${note.monthIndex}, ${note.year})" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1" title="Lihat di Kalender">
                                     Goto
-                                </button>`
+                                </button>`;
+                                
+                // Tombol Share (Hanya untuk tipe 'plan' saja)
+                if (note.type === "plan") {
+                    actionBtnRowHTML += `<button onclick="shareEvent(${note.id})" class="px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1" title="Bagikan Agenda">
+                                        <i class="fa-solid fa-share-nodes"></i> Share
+                                    </button>`;
+                }
+
                 if (isLoggedIn && note.type !== "national") {
                     actionBtnRowHTML += `
                                 <button onclick="openAgendaModal('edit', '${note.dateKey}', ${note.id})" class="px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 rounded-lg text-xs font-bold transition-all flex items-center gap-1">
@@ -1196,6 +1250,8 @@
                                     <i class="fa-regular fa-trash-can"></i> Hapus
                                 </button>
                     `;
+                } else if (isLoggedIn && note.type === "national") {
+                    actionBtnRowHTML += `<span class="text-xs italic text-slate-600 px-1">Fixed</span>`;
                 }
                 actionBtnRowHTML += `</div></td>`
 
@@ -1406,6 +1462,136 @@
         };
 
 
+        // ==========================================
+        // FITUR UTAMA: BAGIKAN AGENDA (SHARE AGENDA)
+        // ==========================================
+        
+        // Helper untuk menyalin teks ke clipboard secara andal di dalam iframe/Canvas
+        function copyToClipboard(text) {
+            const textarea = document.createElement("textarea");
+            textarea.value = text;
+            textarea.style.position = "fixed"; // Hindari pergeseran halaman
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand("copy");
+                window.showNotification("Tautan agenda berhasil disalin ke clipboard!", "success");
+            } catch (err) {
+                window.showNotification("Gagal menyalin tautan agenda.", "error");
+            }
+            document.body.removeChild(textarea);
+        }
+
+        // Fungsi yang dipanggil saat tombol Share diklik (menggunakan parameter ringkas idEvent)
+        window.shareEvent = function(eventId) {
+            const baseUrl = window.location.origin + window.location.pathname;
+            const shareUrl = `${baseUrl}?idEvent=${eventId}`;
+            copyToClipboard(shareUrl);
+        };
+
+        // Fungsi membuka modal tampilan khusus share
+        window.openShareViewModal = function(name, date, description, type) {
+            const viewModal = document.getElementById("share-view-modal");
+            const iconWrapper = document.getElementById("share-view-icon-wrapper");
+            const icon = document.getElementById("share-view-icon");
+            const badge = document.getElementById("share-view-badge");
+            
+            document.getElementById("share-view-name").innerText = name;
+            document.getElementById("share-view-description").innerText = description || "Tidak ada detail deskripsi untuk agenda ini.";
+            
+            // Format tanggal agar enak dibaca (YYYY-MM-DD -> DD-MM-YYYY)
+            const dateParts = date.split("-");
+            let readableDate = date;
+            if (dateParts.length === 3) {
+                const y = parseInt(dateParts[0]);
+                const m = parseInt(dateParts[1]) - 1;
+                const d = parseInt(dateParts[2]);
+                readableDate = `${d} ${MONTH_NAMES[m]} ${y}`;
+            }
+            document.getElementById("share-view-date-label").innerText = readableDate;
+
+            // Sesuaikan warna dan ikon berdasarkan tipe agenda (plan atau national)
+            if (type === "national") {
+                iconWrapper.className = "w-12 h-12 rounded-xl flex items-center justify-center shadow-lg bg-red-600/20 border border-red-500/30 text-red-400";
+                icon.className = "fa-solid fa-flag";
+                badge.className = "px-2.5 py-0.5 rounded-md text-[10px] font-bold border bg-red-500/10 text-red-300 border-red-500/30";
+                badge.innerText = "NATIONAL HOLIDAY";
+            } else {
+                iconWrapper.className = "w-12 h-12 rounded-xl flex items-center justify-center shadow-lg bg-indigo-600/20 border border-indigo-500/30 text-indigo-400";
+                icon.className = "fa-solid fa-note-sticky";
+                badge.className = "px-2.5 py-0.5 rounded-md text-[10px] font-bold border bg-indigo-500/10 text-indigo-300 border-indigo-500/30";
+                badge.innerText = "OFFICE PLAN";
+            }
+
+            viewModal.classList.remove("hidden");
+        };
+
+        // Fungsi menutup modal tampilan khusus share dan membersihkan URL parameters
+        window.closeShareViewModal = function() {
+            document.getElementById("share-view-modal").classList.add("hidden");
+            // Bersihkan parameter pencarian URL tanpa me-refresh halaman
+            window.history.replaceState({}, document.title, window.location.pathname);
+        };
+
+        // Fungsi memeriksa apakah browser diakses melalui tautan share khusus dengan ID Agenda (?idEvent)
+        async function checkURLForSharedEvent() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const evId = urlParams.get("idEvent");
+            
+            if (evId) {
+                // Cari terlebih dahulu di eventsData lokal
+                let event = eventsData.find(evt => evt.id === parseInt(evId));
+
+                // Jika tidak ditemukan secara lokal, coba muat langsung dari server database API
+                if (!event) {
+                    try {
+                        const response = await fetch(
+                            `${host}/rest/v1/holidays?id=eq.${evId}`,
+                            {
+                                method: "GET",
+                                      headers: {
+                                    "apikey": apiKey,
+                                    "Content-Type": "application/json"
+                                }
+                            }
+                        );
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data && data.length > 0) {
+                                event = data[0];
+                                eventsData.push(event); // Tambahkan ke array lokal agar ikut ter-render
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Gagal mengambil detail share agenda:", err);
+                    }
+                }
+
+                if (event) {
+                    const dateParts = event.date.split('-');
+                    if (dateParts.length === 3) {
+                        const y = parseInt(dateParts[0]);
+                        const m = parseInt(dateParts[1]) - 1;
+                        const d = parseInt(dateParts[2]);
+
+                        // Arahkan kalender secara langsung ke tanggal agenda yang dibagikan
+                        currentDate.setFullYear(y);
+                        currentDate.setMonth(m);
+                        selectedDate = new Date(y, m, d);
+
+                        // Trigger rendering kalender
+                        window.reloadCalendarData();
+
+                        // Munculkan pop-up detail agenda setelah render selesai
+                        setTimeout(() => {
+                            window.openShareViewModal(event.name, event.date, event.description, event.type);
+                        }, 500);
+                    }
+                }
+            }
+        }
+
+
         // Helper fungsi untuk menghindari XSS injection pada input catatan
         function escapeHTML(str) {
             return str.replace(/[&<>'"]/g,
@@ -1419,11 +1605,14 @@
             );
         }
 
-        async function gotoMonth(m, y) {
+        // Helper escape untuk memanggil fungsi inline Javascript
+        function escapeJS(str) {
+            return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
+        }
 
+        async function gotoMonth(m, y) {
             currentDate.setFullYear(y);
             currentDate.setMonth(m)
-
             window.reloadCalendarData();
         }
 
